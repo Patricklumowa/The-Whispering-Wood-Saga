@@ -1,0 +1,87 @@
+
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Whispering Wood Saga</title>
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          colors: {
+            'terminal-bg': '#1a1b26',
+            'terminal-text': '#a9b1d6',
+            'terminal-green': '#9ece6a',
+            'terminal-yellow': '#e0af68',
+            'terminal-blue': '#7aa2f7',
+            'terminal-purple': '#bb9af7',
+            'terminal-cyan': '#7dcfff',
+            'terminal-red': '#f7768e',
+            'terminal-border': '#414868',
+            'terminal-accent': '#ff9e64', // A bright accent color
+          },
+          fontFamily: {
+            'mono': ['"Courier New"', 'Courier', 'monospace'],
+          },
+        }
+      }
+    }
+  </script>
+  <style>
+    :root {
+      --color-terminal-bg: #1a1b26;
+      --color-terminal-text: #a9b1d6;
+      --color-terminal-green: #9ece6a;
+      --color-terminal-yellow: #e0af68;
+      --color-terminal-blue: #7aa2f7;
+      --color-terminal-purple: #bb9af7;
+      --color-terminal-cyan: #7dcfff;
+      --color-terminal-red: #f7768e;
+      --color-terminal-border: #414868;
+      --color-terminal-accent: #ff9e64;
+    }
+    body {
+      background-color: var(--color-terminal-bg); 
+      color: var(--color-terminal-text);
+      font-family: "Courier New", Courier, monospace;
+    }
+    /* Custom scrollbar styles */
+    .custom-scrollbar::-webkit-scrollbar {
+      width: 8px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-track {
+      background: var(--color-terminal-bg);
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb {
+      background: var(--color-terminal-border);
+      border-radius: 4px;
+    }
+    .custom-scrollbar::-webkit-scrollbar-thumb:hover {
+      background: var(--color-terminal-blue);
+    }
+    /* For Firefox */
+    .custom-scrollbar {
+      scrollbar-width: thin;
+      scrollbar-color: var(--color-terminal-border) var(--color-terminal-bg); /* thumb track */
+    }
+  </style>
+<script type="importmap">
+{
+  "imports": {
+    "react": "https://esm.sh/react@^19.1.0",
+    "react-dom/": "https://esm.sh/react-dom@^19.1.0/",
+    "react/": "https://esm.sh/react@^19.1.0/",
+    "@google/genai": "https://esm.sh/@google/genai@^1.2.0"
+  }
+}
+</script>
+</head>
+<body>
+  <noscript>You need to enable JavaScript to run this app.</noscript>
+  <div id="root"></div>
+</body>
+</html>
+<link rel="stylesheet" href="index.css">
+<script src="index.tsx" type="module"></script>
