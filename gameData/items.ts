@@ -6,7 +6,7 @@ export const ITEMS_DATA: Record<string, Item> = {
   'rusty_sword': {
     id: 'rusty_sword',
     name: 'Rusty Sword',
-    description: 'An old, tarnished sword. It has seen better days, but it can still serve a purpose.',
+    description: 'An old, tarnished sword lmao. It has seen better days, but it can still serve a purpose... just dont hit things so hard...',
     type: ItemType.WEAPON,
     attackBonus: 2,
     isEquippable: true,
