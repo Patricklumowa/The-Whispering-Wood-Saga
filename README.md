@@ -1,8 +1,6 @@
-# Run and deploy your AI Studio app
+https://the-whispering-wood-saga.vercel.app/
 
-This contains everything you need to run your app locally.
-
-## Run Locally
+## Or Run Locally
 
 **Prerequisites:**  Node.js
 
