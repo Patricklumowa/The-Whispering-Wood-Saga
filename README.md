@@ -1,5 +1,5 @@
 A text rpg based game
-With "Prompt to Action" Core gameplay mechanic
+With "Ai Prompt to Action" Core gameplay mechanic
 
 https://the-whispering-wood-saga.vercel.app/
 
