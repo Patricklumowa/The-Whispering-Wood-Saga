@@ -1,6 +1,7 @@
 A text rpg based game
 With "Ai Prompt to Action" Core gameplay mechanic
 
+V 0.4a
 https://the-whispering-wood-saga.vercel.app/
 
 ## Or Run Locally
