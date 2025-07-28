@@ -10,17 +10,14 @@ import QuestLogDisplay from './components/QuestLogDisplay';
 import CombatDisplay from './components/CombatDisplay';
 import WorldMap from './components/WorldMap';
 import { DialogueChoice, GameState } from './types';
-import { initializeAiClient, getAiClient, callGemini } from './lib/ai';
+import { initializeAiClient, callGemini } from './lib/ai';
 import { obfuscateState, deobfuscateCode } from './lib/saveLoadUtils';
 
 const App: React.FC = () => {
   const { gameState, dispatch, processCommand: engineProcessCommand } = useGameEngine();
 
-  const [isApiKeyModalOpen, setIsApiKeyModalOpen] = useState(false);
-  const [apiKeyInput, setApiKeyInput] = useState('');
-  const [apiKeyError, setApiKeyError] = useState<string | null>(null);
-  const [apiKeyVerified, setApiKeyVerified] = useState(false);
-  const [isVerifyingKey, setIsVerifyingKey] = useState(false);
+  const [aiReady, setAiReady] = useState(false);
+  const [aiInitError, setAiInitError] = useState<string | null>(null);
 
   const [isNameModalOpen, setIsNameModalOpen] = useState(false);
   const [playerNameInput, setPlayerNameInput] = useState('');
@@ -34,23 +31,31 @@ const App: React.FC = () => {
   const saveCodeTextAreaRef = useRef<HTMLTextAreaElement>(null);
 
 
-  // Effect 1: API Key Check and Modal Trigger
+  // Effect 1: AI Initialization on load
   useEffect(() => {
-    if (gameState.isGameOver) {
-        setIsApiKeyModalOpen(false);
-        return;
-    }
-    if (!getAiClient() && !apiKeyVerified) {
-      setIsApiKeyModalOpen(true);
-    } else if (getAiClient() && apiKeyVerified) { 
-      setIsApiKeyModalOpen(false);
-    }
-  }, [apiKeyVerified, gameState.isGameOver, gameStarted]);
+    const initAi = async () => {
+      if (initializeAiClient()) {
+        const testResponse = await callGemini("test"); // Simple test call to verify connection and key
+        if (testResponse.toLowerCase().startsWith("error:")) {
+          setAiInitError(testResponse);
+          setAiReady(false);
+        } else {
+          setAiReady(true);
+          setAiInitError(null);
+          dispatch({ type: 'ADD_MESSAGE', message: 'AI Client initialized successfully.', messageType: 'system' });
+        }
+      } else {
+        setAiInitError("AI_API_KEY environment variable not set. AI features are disabled.");
+        setAiReady(false);
+      }
+    };
+    initAi();
+  }, [dispatch]);
 
 
-  // Effect 2: Player Name Modal Logic - Runs ONLY if API key is verified (or not needed)
+  // Effect 2: Player Name Modal Logic - Runs ONLY if AI is ready
   useEffect(() => {
-    if (!apiKeyVerified || gameState.isGameOver || gameState.isLoading) {
+    if (!aiReady || gameState.isGameOver || gameState.isLoading) {
       setIsNameModalOpen(false);
       return;
     }
@@ -68,7 +73,7 @@ const App: React.FC = () => {
         setIsNameModalOpen(false);
       }
     }
-  }, [apiKeyVerified, gameState.player.name, gameState.isLoading, gameStarted, gameState.isGameOver]);
+  }, [aiReady, gameState.player.name, gameState.isLoading, gameStarted, gameState.isGameOver]);
 
 
   const handleNameSubmit = () => {
@@ -89,51 +94,6 @@ const App: React.FC = () => {
         }
       }
     }
-  };
-
-  const handleApiKeySubmit = async () => {
-    if (!apiKeyInput.trim()) {
-        setApiKeyError("API Key cannot be empty.");
-        return;
-    }
-    setIsVerifyingKey(true);
-    setApiKeyError(null);
-
-    if (initializeAiClient(apiKeyInput.trim())) {
-        // Use a simple, direct prompt for verification.
-        const testResponse = await callGemini("What is your model name?", "You are a helpful assistant that responds concisely.");
-        const testResponseLower = testResponse.toLowerCase();
-        
-        // Check if the response indicates an error or a problem with the key.
-        // callGemini itself will de-initialize (set ai=null) if it detects key errors during the call.
-        if (testResponseLower.includes("error:") || 
-            testResponseLower.includes("api key not valid") ||
-            testResponseLower.includes("ai client is not initialized") || // Means ai was null before callGemini, or callGemini reset it
-            testResponseLower.includes("permission_denied") ||
-            testResponseLower.includes("invalid api key") ||
-            testResponseLower.includes("api_key_invalid")) {
-            
-            setApiKeyError(testResponse.startsWith("AI client is not initialized") ? "AI client could not be initialized with this key. Please check it." : testResponse);
-            // Ensure client is null if verification failed (callGemini might have already done this)
-            if (getAiClient()) initializeAiClient(""); 
-            setApiKeyVerified(false);
-        } else if (testResponseLower.includes("gemini") || testResponseLower.includes("model")) { 
-            // A successful response to "What is your model name?" should contain "gemini" or "model".
-            setApiKeyVerified(true);
-            setIsApiKeyModalOpen(false);
-            dispatch({ type: 'ADD_MESSAGE', message: 'AI Client initialized and key verified successfully.', messageType: 'system' });
-        } else {
-            // Unexpected response from verification call.
-             setApiKeyError(`Unexpected response during API key verification: ${testResponse.substring(0,100)}... Key might be invalid.`);
-             if (getAiClient()) initializeAiClient("");
-             setApiKeyVerified(false);
-        }
-    } else {
-        // initializeAiClient returned false (e.g., bad key format for constructor)
-        setApiKeyError("Failed to instantiate AI client with the provided key. It might be malformed.");
-        setApiKeyVerified(false);
-    }
-    setIsVerifyingKey(false);
   };
 
   const generateAndShowSaveCode = () => {
@@ -254,22 +214,32 @@ const App: React.FC = () => {
                 return false;
             }
             if (choice.requiredPlayerLevel && gameState.player.level < choice.requiredPlayerLevel) return false;
+            if (choice.condition && !choice.condition(gameState)) return false;
             return true;
         });
     }
   }
 
-  const shouldRenderMainUI = apiKeyVerified && !isNameModalOpen && gameStarted && !gameState.isGameOver && !isSaveCodeModalOpen && !isLoadCodeModalOpen;
+  const shouldRenderMainUI = aiReady && !isNameModalOpen && gameStarted && !gameState.isGameOver && !isSaveCodeModalOpen && !isLoadCodeModalOpen;
 
-  if (isVerifyingKey && !gameState.isGameOver) {
-    return <div className="flex items-center justify-center h-screen text-terminal-cyan text-xl">Verifying API Key...</div>;
+  if (aiInitError) {
+    return (
+      <div className="flex items-center justify-center h-screen bg-terminal-bg text-terminal-text font-mono p-4">
+        <div className="bg-terminal-bg border border-terminal-red p-6 rounded-lg shadow-xl max-w-lg w-full text-center">
+          <h2 className="text-2xl text-terminal-red font-semibold mb-4">AI Initialization Failed</h2>
+          <p className="mb-4">The AI assistant could not be loaded. The game cannot continue without it.</p>
+          <p className="text-terminal-yellow bg-black bg-opacity-20 p-2 rounded text-sm">{aiInitError}</p>
+          <p className="mt-4 text-xs text-terminal-border">Please ensure the `API_KEY` environment variable is set correctly and try refreshing the page.</p>
+        </div>
+      </div>
+    );
   }
-  if (!apiKeyVerified && !isApiKeyModalOpen && !gameState.isGameOver) {
-    if (!isApiKeyModalOpen && !isNameModalOpen && !isSaveCodeModalOpen && !isLoadCodeModalOpen) {
-        return <div className="flex items-center justify-center h-screen text-terminal-cyan text-xl">Initializing Game...</div>;
-    }
+
+  if (!aiReady && !gameState.isGameOver) {
+      return <div className="flex items-center justify-center h-screen text-terminal-cyan text-xl animate-pulse">Initializing AI...</div>;
   }
-  if (apiKeyVerified && gameState.isLoading && !gameStarted && !isLoadCodeModalOpen && !gameState.isGameOver) {
+  
+  if (aiReady && gameState.isLoading && !gameStarted && !isLoadCodeModalOpen && !gameState.isGameOver) {
     return <div className="flex items-center justify-center h-screen text-terminal-cyan text-xl">Loading Game Data...</div>;
   }
 
@@ -277,35 +247,7 @@ const App: React.FC = () => {
   return (
     <div className="bg-terminal-bg min-h-screen text-terminal-text font-mono flex flex-col p-1 sm:p-2 md:p-3 selection:bg-terminal-accent selection:text-terminal-bg">
       <Modal 
-        isOpen={isApiKeyModalOpen && !apiKeyVerified && !gameState.isGameOver} 
-        title="Gemini API Key Required" 
-        showCloseButton={false}
-      >
-        <p className="mb-2 text-sm text-terminal-text">
-            The AI assistant requires a Google Gemini API key. Please enter your key below.
-            If you don't have one, you can obtain it from Google AI Studio.
-        </p>
-        {apiKeyError && <p className="text-terminal-red text-xs mb-2">{apiKeyError}</p>}
-        <input
-            type="password"
-            value={apiKeyInput}
-            onChange={(e) => setApiKeyInput(e.target.value)}
-            onKeyPress={(e) => e.key === 'Enter' && handleApiKeySubmit()}
-            className="w-full p-2 mb-3 bg-terminal-text bg-opacity-10 border border-terminal-border rounded text-terminal-text focus:outline-none focus:border-terminal-accent"
-            placeholder="Enter your Gemini API Key"
-            disabled={isVerifyingKey}
-        />
-        <button
-            onClick={handleApiKeySubmit}
-            className="w-full p-2 bg-terminal-blue text-terminal-bg rounded hover:bg-opacity-80 transition-colors disabled:opacity-50"
-            disabled={isVerifyingKey}
-        >
-            {isVerifyingKey ? 'Verifying...' : 'Submit Key'}
-        </button>
-      </Modal>
-      
-      <Modal 
-        isOpen={isNameModalOpen && apiKeyVerified && !gameState.isGameOver} 
+        isOpen={isNameModalOpen && aiReady && !gameState.isGameOver} 
         title="Enter Your Name" 
         showCloseButton={false}
       >
@@ -445,12 +387,12 @@ const App: React.FC = () => {
               playerName={gameState.player.name}
               isAiProcessing={gameState.isAiProcessing}
               aiInteraction={gameState.aiInteraction}
-              disabled={gameState.isGameOver || !apiKeyVerified || isNameModalOpen || isSaveCodeModalOpen || isLoadCodeModalOpen}
+              disabled={gameState.isGameOver || !aiReady || isNameModalOpen || isSaveCodeModalOpen || isLoadCodeModalOpen}
             />
           </footer>
         </>
       )}
-      {!shouldRenderMainUI && !isApiKeyModalOpen && !isNameModalOpen && !isSaveCodeModalOpen && !isLoadCodeModalOpen && !gameState.isGameOver && !isVerifyingKey &&
+      {!shouldRenderMainUI && !isNameModalOpen && !isSaveCodeModalOpen && !isLoadCodeModalOpen && !gameState.isGameOver && !aiInitError &&
         <div className="flex items-center justify-center h-screen text-terminal-cyan text-xl">Initializing Interface...</div>
       }
     </div>
@@ -458,4 +400,3 @@ const App: React.FC = () => {
 };
 
 export default App;
-//
