@@ -4,17 +4,18 @@ import { GoogleGenAI, GenerateContentResponse, GenerateContentParameters, Conten
 let ai: GoogleGenAI | null = null;
 
 /**
- * Attempts to initialize the GoogleGenAI client using the process.env.API_KEY.
+ * Attempts to initialize the GoogleGenAI client using a provided API Key.
+ * @param apiKey The user-provided API key.
  * @returns True if initialization was successful, false otherwise.
  */
-export function initializeAiClient(): boolean {
-    if (!process.env.API_KEY) {
-        console.error("API_KEY environment variable not set.");
+export function initializeAiClient(apiKey: string): boolean {
+    if (!apiKey) {
+        console.error("No API Key provided for initialization.");
         ai = null;
         return false;
     }
     try {
-        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
+        ai = new GoogleGenAI({ apiKey: apiKey });
         console.log("Gemini AI Client Instantiated.");
         return true;
     } catch (error) {
@@ -39,7 +40,7 @@ export function getAiClient(): GoogleGenAI | null {
  */
 export async function callGemini(promptContent: string | Content, systemInstruction?: string): Promise<string> {
     if (!ai) {
-        return "Error: AI client is not initialized. The API_KEY may be missing or invalid.";
+        return "Error: AI client is not initialized. Please provide a valid API key.";
     }
 
     try {
@@ -73,7 +74,7 @@ export async function callGemini(promptContent: string | Content, systemInstruct
                 errorMsgLower.includes("api_key_invalid") ||
                 errorMsgLower.includes("invalid api key")) {
                 ai = null; 
-                return "Error: The provided Gemini API key is not valid or has insufficient permissions. AI features disabled.";
+                return "Error: The provided Gemini API key is not valid or has insufficient permissions. Please enter a valid key.";
             }
             if (errorMsgLower.includes("fetch failed") || errorMsgLower.includes("failed to fetch")) {
                  return "Error: Network issue while trying to reach Gemini API. Please check your connection.";
