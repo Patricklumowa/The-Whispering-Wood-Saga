@@ -4,22 +4,21 @@ import { GoogleGenAI, GenerateContentResponse, GenerateContentParameters, Conten
 let ai: GoogleGenAI | null = null;
 
 /**
- * Attempts to initialize the GoogleGenAI client with the provided API key.
- * @param apiKey The API key string.
+ * Attempts to initialize the GoogleGenAI client using the process.env.API_KEY.
  * @returns True if initialization was successful, false otherwise.
  */
-export function initializeAiClient(apiKey: string): boolean {
-    if (!apiKey || apiKey.trim() === '') {
-        console.warn("Attempted to initialize AI client with an empty API key.");
+export function initializeAiClient(): boolean {
+    if (!process.env.API_KEY) {
+        console.error("API_KEY environment variable not set.");
         ai = null;
         return false;
     }
     try {
-        ai = new GoogleGenAI({ apiKey });
+        ai = new GoogleGenAI({ apiKey: process.env.API_KEY });
         console.log("Gemini AI Client Instantiated.");
         return true;
     } catch (error) {
-        console.error("Failed to instantiate GoogleGenAI with provided key:", error);
+        console.error("Failed to instantiate GoogleGenAI:", error);
         ai = null;
         return false;
     }
@@ -40,13 +39,12 @@ export function getAiClient(): GoogleGenAI | null {
  */
 export async function callGemini(promptContent: string | Content, systemInstruction?: string): Promise<string> {
     if (!ai) {
-        // This message is a generic "not initialized", App.tsx handles specific key prompt.
-        return "AI client is not initialized. Please ensure a valid API key has been provided.";
+        return "Error: AI client is not initialized. The API_KEY may be missing or invalid.";
     }
 
     try {
         const request: GenerateContentParameters = {
-            model: 'gemini-2.5-flash-preview-04-17',
+            model: 'gemini-2.5-flash',
             contents: promptContent,
             config: {
                 // thinkingConfig: { thinkingBudget: 0 }, // Optional for faster responses
@@ -69,14 +67,11 @@ export async function callGemini(promptContent: string | Content, systemInstruct
     } catch (error: any) {
         console.error("Error calling Gemini API:", error);
         if (error.message) {
-            // More robust check for API key validity errors
             const errorMsgLower = error.message.toLowerCase();
             if (errorMsgLower.includes("api key not valid") || 
                 errorMsgLower.includes("permission_denied") || 
                 errorMsgLower.includes("api_key_invalid") ||
-                errorMsgLower.includes("invalid api key") || // Common variation
-                errorMsgLower.includes("api key is invalid")) {
-                // If the API call itself confirms the key is bad, de-initialize.
+                errorMsgLower.includes("invalid api key")) {
                 ai = null; 
                 return "Error: The provided Gemini API key is not valid or has insufficient permissions. AI features disabled.";
             }
@@ -84,6 +79,6 @@ export async function callGemini(promptContent: string | Content, systemInstruct
                  return "Error: Network issue while trying to reach Gemini API. Please check your connection.";
             }
         }
-        return "Sorry, I'm having trouble communicating with the ethereal planes right now. (AI Error)";
+        return `Sorry, I'm having trouble communicating with the ethereal planes right now. (AI Error: ${error.message || 'Unknown'})`;
     }
 }
